@@ -2,8 +2,11 @@ package main
 
 import (
 	"GoNews/pkg/api"
+	"GoNews/pkg/config"
 	"GoNews/pkg/storage"
-	"GoNews/pkg/storage/memdb"
+	"GoNews/pkg/storage/postgres"
+	"GoNews/pkg/xmlHandler"
+	"log"
 	"net/http"
 )
 
@@ -17,26 +20,33 @@ func main() {
 	// Создаём объект сервера.
 	var srv server
 
+	cfg := config.New()
+
+	if len(cfg.RSS) == 0 {
+		log.Panicln("no rss provided")
+	}
+
+	posts := make(chan storage.NewsPost, 3)
+	errors := make(chan error)
+
 	// Создаём объекты баз данных.
-	//
-	// БД в памяти.
-	db := memdb.New()
-    /*
+
 	// Реляционная БД PostgreSQL.
-	db2, err := postgres.New("postgres://postgres:postgres@server.domain/posts")
+	db, err := postgres.New("postgres://postgres:123456@localhost:5432/postgres")
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Документная БД MongoDB.
-	db3, err := mongo.New("mongodb://server.domain:27017/")
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, _ = db2, db3
-	*/
 
 	// Инициализируем хранилище сервера конкретной БД.
 	srv.db = db
+
+	//Запуск горутины для буферизации новостей
+	go storage.NewsBuffer(posts, errors, srv.db)
+
+	//Запуск горутин для обхода RSS потоков по заданному интервалу
+	for _, url := range cfg.RSS {
+		go xmlHandler.XMLHandler(url, cfg.RequestPeriod, posts, errors)
+	}
 
 	// Создаём объект API и регистрируем обработчики.
 	srv.api = api.New(srv.db)

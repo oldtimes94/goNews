@@ -1,0 +1,7 @@
+{
+  "rss": [
+    "https://habr.com/ru/rss/hubs/go/articles/all/?fl=ru",
+    "https://cprss.s3.amazonaws.com/golangweekly.com.xml"
+  ],
+  "requestPeriod": 1
+}
